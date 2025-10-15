@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expenses 25-26</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-green: #10b981;
+            --primary-red: #ef4444;
+            --dark-bg: #0f172a;
+            --dark-surface: #1e293b;
+            --dark-card: #334155;
+            --dark-border: #475569;
+            --light-text: #f8fafc;
+            --muted-text: #cbd5e1;
+            --accent-color: #6366f1;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            line-height: 1.6;
+            padding-bottom: 80px;
+            transition: all 0.3s ease;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--dark-surface), #1a365d);
+            color: var(--light-text);
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-green), var(--accent-color), var(--primary-red));
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .summary-cards {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        .card {
+            background: var(--dark-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            border: 1px solid var(--dark-border);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+        }
+        
+        .card h3 {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: var(--muted-text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .card .amount {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .net-balance {
+            border-left: 4px solid var(--primary-green);
+        }
+        
+        .cash-in {
+            border-left: 4px solid var(--primary-green);
+        }
+        
+        .cash-out {
+            border-left: 4px solid var(--primary-red);
+        }
+        
+        .filters {
+            background: var(--dark-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--dark-border);
+        }
+        
+        .filters h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        
+        @media (min-width: 480px) {
+            .filter-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .filter-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .filter-item {
+            margin-bottom: 10px;
+        }
+        
+        .filter-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: var(--muted-text);
+        }
+        
+        .filter-item select, .filter-item input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--dark-border);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--dark-surface);
+            color: var(--light-text);
+            transition: border-color 0.3s ease;
+        }
+        
+        .filter-item select:focus, .filter-item input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 16px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            box-shadow: var(--box-shadow);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-green {
+            background: linear-gradient(135deg, var(--primary-green), #059669);
+            color: white;
+        }
+        
+        .btn-red {
+            background: linear-gradient(135deg, var(--primary-red), #dc2626);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--dark-card);
+            color: var(--light-text);
+            border: 1px solid var(--dark-border);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--dark-surface);
+        }
+        
+        .utility-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        @media (min-width: 480px) {
+            .utility-buttons {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .entries-section {
+            background: var(--dark-card);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--box-shadow);
+            border: 1px solid var(--dark-border);
+        }
+        
+        .entries-section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .entries-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 8px;
+        }
+        
+        .entry-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid var(--dark-border);
+            transition: background-color 0.2s ease;
+        }
+        
+        .entry-item:hover {
+            background: var(--dark-surface);
+        }
+        
+        .entry-item:last-child {
+            border-bottom: none;
+        }
+        
+        .entry-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .entry-date {
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        
+        .entry-category {
+            font-weight: bold;
+            margin: 5px 0;
+            color: var(--light-text);
+        }
+        
+        .entry-remarks {
+            color: var(--muted-text);
+            font-size: 0.9rem;
+        }
+        
+        .entry-amount {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .amount-in {
+            color: var(--primary-green);
+        }
+        
+        .amount-out {
+            color: var(--primary-red);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background: var(--dark-card);
+            border-radius: var(--border-radius);
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            border: 1px solid var(--dark-border);
+            animation: modalAppear 0.3s ease;
+        }
+        
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .modal-header {
+            padding: 20px;
+            background: var(--dark-surface);
+            color: var(--light-text);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--dark-border);
+        }
+        
+        .modal-header h2 {
+            font-size: 1.3rem;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--muted-text);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .close-btn:hover {
+            color: var(--light-text);
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--muted-text);
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--dark-border);
+            border-radius: 8px;
+            font-size: 1rem;
+            background: var(--dark-surface);
+            color: var(--light-text);
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .categories-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 1px solid var(--dark-border);
+        }
+        
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 14px;
+            border-bottom: 1px solid var(--dark-border);
+            transition: background-color 0.2s ease;
+        }
+        
+        .category-item:hover {
+            background: var(--dark-surface);
+        }
+        
+        .category-item:last-child {
+            border-bottom: none;
+        }
+        
+        .category-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .category-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted-text);
+            transition: color 0.3s ease;
+        }
+        
+        .category-actions button:hover {
+            color: var(--light-text);
+        }
+        
+        .negative {
+            color: var(--primary-red);
+        }
+        
+        .positive {
+            color: var(--primary-green);
+        }
+        
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--dark-surface);
+            color: var(--muted-text);
+            text-align: center;
+            padding: 12px;
+            font-size: 0.8rem;
+            border-top: 1px solid var(--dark-border);
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 20px;
+            border-radius: var(--border-radius);
+            color: white;
+            font-weight: bold;
+            z-index: 1100;
+            display: none;
+            box-shadow: var(--box-shadow);
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .notification.success {
+            background: linear-gradient(135deg, var(--primary-green), #059669);
+        }
+        
+        .notification.error {
+            background: linear-gradient(135deg, var(--primary-red), #dc2626);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .no-entries {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--muted-text);
+        }
+        
+        /* Custom scrollbar for dark mode */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--dark-surface);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--dark-border);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-color);
+        }
+        
+        /* Theme toggle button */
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--light-text);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(30deg);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fas fa-money-bill-wave"></i> Expenses 25-26</h1>
+            <p>Track your income and expenses easily</p>
+            <button class="theme-toggle" id="theme-toggle">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="summary-cards">
+            <div class="card net-balance">
+                <h3>Net Balance</h3>
+                <div class="amount positive">₹0.00</div>
+            </div>
+            <div class="card cash-in">
+                <h3>Total Cash In</h3>
+                <div class="amount positive">₹0.00</div>
+            </div>
+            <div class="card cash-out">
+                <h3>Total Cash Out</h3>
+                <div class="amount negative">₹0.00</div>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <h2><i class="fas fa-filter"></i> Filters</h2>
+            <div class="filter-grid">
+                <div class="filter-item">
+                    <label for="month-filter">Month</label>
+                    <select id="month-filter">
+                        <option value="">All Months</option>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="category-filter">Category</label>
+                    <select id="category-filter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="type-filter">Type</label>
+                    <select id="type-filter">
+                        <option value="">All Types</option>
+                        <option value="in">Cash In</option>
+                        <option value="out">Cash Out</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label for="date-from">Date From</label>
+                    <input type="date" id="date-from">
+                </div>
+                <div class="filter-item">
+                    <label for="date-to">Date To</label>
+                    <input type="date" id="date-to">
+                </div>
+            </div>
+            <button class="btn btn-secondary" id="apply-filters" style="margin-top: 10px; width: 100%;">
+                <i class="fas fa-search"></i> Apply Filters
+            </button>
+            <button class="btn btn-secondary" id="clear-filters" style="margin-top: 5px; width: 100%;">
+                <i class="fas fa-times"></i> Clear Filters
+            </button>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="btn btn-green" id="cash-in-btn">
+                <i class="fas fa-plus-circle"></i> Cash In
+            </button>
+            <button class="btn btn-red" id="cash-out-btn">
+                <i class="fas fa-minus-circle"></i> Cash Out
+            </button>
+        </div>
+        
+        <div class="utility-buttons">
+            <button class="btn btn-secondary" id="export-btn">
+                <i class="fas fa-file-export"></i> Export
+            </button>
+            <button class="btn btn-secondary" id="view-all-btn">
+                <i class="fas fa-list"></i> View All
+            </button>
+            <button class="btn btn-secondary" id="manage-categories-btn">
+                <i class="fas fa-tags"></i> Categories
+            </button>
+            <button class="btn btn-secondary" id="import-btn">
+                <i class="fas fa-file-import"></i> Import
+            </button>
+        </div>
+        
+        <div class="entries-section">
+            <h2><i class="fas fa-history"></i> Recent Entries</h2>
+            <div class="entries-list" id="entries-list">
+                <div class="no-entries">
+                    <i class="fas fa-receipt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p>No entries yet. Add your first expense or income!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cash In/Out Modal -->
+    <div class="modal" id="entry-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Add Entry</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="entry-form">
+                    <div class="form-group">
+                        <label for="entry-date">Date *</label>
+                        <input type="date" id="entry-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="entry-amount">Amount *</label>
+                        <input type="number" id="entry-amount" min="0" step="0.01" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="entry-category">Category *</label>
+                        <select id="entry-category" required>
+                            <option value="">Select Category</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="entry-remarks">Remarks / Comments</label>
+                        <textarea id="entry-remarks" placeholder="Add any remarks or comments"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                        <button type="submit" class="btn" id="save-btn">
+                            <span id="save-btn-text">Save Entry</span>
+                            <div class="loading" id="save-loading" style="display: none;"></div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Categories Modal -->
+    <div class="modal" id="categories-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Manage Categories</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="new-category">Add New Category</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="new-category" placeholder="Category name">
+                        <select id="new-category-type">
+                            <option value="OUT">Expense</option>
+                            <option value="IN">Income</option>
+                            <option value="BOTH">Both</option>
+                        </select>
+                        <button class="btn btn-green" id="add-category-btn">Add</button>
+                    </div>
+                </div>
+                
+                <div class="categories-list" id="categories-list">
+                    <!-- Categories will be loaded here -->
+                </div>
+                
+                <div class="form-actions">
+                    <button class="btn btn-secondary" id="close-categories-btn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal" id="import-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Import Entries</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="import-file">Select CSV or Excel File</label>
+                    <input type="file" id="import-file" accept=".csv,.xlsx,.xls">
+                    <small style="color: var(--muted-text);">File should have columns: Date, Type, Amount, Category, Remarks</small>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-secondary" id="cancel-import-btn">Cancel</button>
+                    <button class="btn btn-green" id="process-import-btn">Import</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+    
+    <footer>
+        <div class="container">
+            Expenses 25-26 &copy; 2025 | Track your finances easily
+        </div>
+    </footer>
+
+    <script>
+        // Configuration - UPDATE THIS WITH YOUR GOOGLE APPS SCRIPT URL
+        const API_URL = 'https://script.google.com/macros/s/AKfycbwF6cMMo3A1VCOWVhuCNXQa2k-e6qBeifDz2A1sX7mAbaIfiz5of5Hth4Bv-xxd3cNj/exec';
+        
+        // DOM Elements
+        const cashInBtn = document.getElementById('cash-in-btn');
+        const cashOutBtn = document.getElementById('cash-out-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const viewAllBtn = document.getElementById('view-all-btn');
+        const manageCategoriesBtn = document.getElementById('manage-categories-btn');
+        const importBtn = document.getElementById('import-btn');
+        const applyFiltersBtn = document.getElementById('apply-filters');
+        const clearFiltersBtn = document.getElementById('clear-filters');
+        const entryModal = document.getElementById('entry-modal');
+        const categoriesModal = document.getElementById('categories-modal');
+        const importModal = document.getElementById('import-modal');
+        const closeBtns = document.querySelectorAll('.close-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const closeCategoriesBtn = document.getElementById('close-categories-btn');
+        const cancelImportBtn = document.getElementById('cancel-import-btn');
+        const processImportBtn = document.getElementById('process-import-btn');
+        const entryForm = document.getElementById('entry-form');
+        const saveBtn = document.getElementById('save-btn');
+        const saveBtnText = document.getElementById('save-btn-text');
+        const saveLoading = document.getElementById('save-loading');
+        const modalTitle = document.getElementById('modal-title');
+        const addCategoryBtn = document.getElementById('add-category-btn');
+        const notification = document.getElementById('notification');
+        const themeToggle = document.getElementById('theme-toggle');
+        
+        // Global state
+        let currentEntries = [];
+        let currentCategories = [];
+        let currentEntryType = 'in';
+        
+        // Set today's date as default in the form
+        document.getElementById('entry-date').valueAsDate = new Date();
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSummary();
+            loadEntries();
+            loadCategories();
+            setupEventListeners();
+            setupFilterDates();
+        });
+        
+        function setupEventListeners() {
+            cashInBtn.addEventListener('click', () => openEntryModal('in'));
+            cashOutBtn.addEventListener('click', () => openEntryModal('out'));
+            manageCategoriesBtn.addEventListener('click', openCategoriesModal);
+            importBtn.addEventListener('click', () => importModal.style.display = 'flex');
+            applyFiltersBtn.addEventListener('click', applyFilters);
+            clearFiltersBtn.addEventListener('click', clearFilters);
+            exportBtn.addEventListener('click', exportData);
+            viewAllBtn.addEventListener('click', viewAllEntries);
+            themeToggle.addEventListener('click', toggleTheme);
+            
+            closeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    entryModal.style.display = 'none';
+                    categoriesModal.style.display = 'none';
+                    importModal.style.display = 'none';
+                });
+            });
+            
+            cancelBtn.addEventListener('click', () => entryModal.style.display = 'none');
+            closeCategoriesBtn.addEventListener('click', () => categoriesModal.style.display = 'none');
+            cancelImportBtn.addEventListener('click', () => importModal.style.display = 'none');
+            processImportBtn.addEventListener('click', processImport);
+            
+            // Close modals when clicking outside
+            window.addEventListener('click', (e) => {
+                if (e.target === entryModal) entryModal.style.display = 'none';
+                if (e.target === categoriesModal) categoriesModal.style.display = 'none';
+                if (e.target === importModal) importModal.style.display = 'none';
+            });
+            
+            entryForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                saveEntry();
+            });
+            
+            addCategoryBtn.addEventListener('click', addNewCategory);
+        }
+        
+        function setupFilterDates() {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            
+            document.getElementById('date-from').valueAsDate = firstDay;
+            document.getElementById('date-to').valueAsDate = lastDay;
+        }
+        
+        function openEntryModal(type) {
+            currentEntryType = type;
+            
+            if (type === 'in') {
+                modalTitle.textContent = 'Cash In';
+                saveBtn.className = 'btn btn-green';
+                saveBtnText.textContent = 'Add Income';
+            } else {
+                modalTitle.textContent = 'Cash Out';
+                saveBtn.className = 'btn btn-red';
+                saveBtnText.textContent = 'Add Expense';
+            }
+            
+            // Set the current date as default
+            document.getElementById('entry-date').valueAsDate = new Date();
+            
+            // Clear the form
+            document.getElementById('entry-amount').value = '';
+            document.getElementById('entry-category').selectedIndex = 0;
+            document.getElementById('entry-remarks').value = '';
+            
+            // Update category dropdown based on type
+            updateCategoryDropdown(type);
+            
+            entryModal.style.display = 'flex';
+        }
+        
+        function updateCategoryDropdown(type) {
+            const categorySelect = document.getElementById('entry-category');
+            categorySelect.innerHTML = '<option value="">Select Category</option>';
+            
+            currentCategories.forEach(category => {
+                if (category.Type === 'BOTH' || 
+                    (type === 'in' && category.Type === 'IN') ||
+                    (type === 'out' && category.Type === 'OUT')) {
+                    const option = document.createElement('option');
+                    option.value = category.CategoryName;
+                    option.textContent = category.CategoryName;
+                    categorySelect.appendChild(option);
+                }
+            });
+        }
+        
+        function saveEntry() {
+            const date = document.getElementById('entry-date').value;
+            const amount = document.getElementById('entry-amount').value;
+            const category = document.getElementById('entry-category').value;
+            const remarks = document.getElementById('entry-remarks').value;
+            const type = currentEntryType.toUpperCase();
+            
+            // Validate form
+            if (!date || !amount || !category) {
+                showNotification('Please fill all required fields', 'error');
+                return;
+            }
+            
+            // Show loading state
+            saveBtnText.style.display = 'none';
+            saveLoading.style.display = 'inline-block';
+            saveBtn.disabled = true;
+            
+            // Prepare data for API
+            const formData = new URLSearchParams();
+            formData.append('action', 'addEntry');
+            formData.append('date', date);
+            formData.append('type', type);
+            formData.append('amount', amount);
+            formData.append('category', category);
+            formData.append('remarks', remarks);
+            
+            // Send to Google Apps Script
+            fetch(API_URL, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`Entry added successfully!`, 'success');
+                    entryModal.style.display = 'none';
+                    
+                    // Reload data
+                    loadSummary();
+                    loadEntries();
+                } else {
+                    throw new Error(data.error || 'Failed to add entry');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error adding entry: ' + error.message, 'error');
+            })
+            .finally(() => {
+                // Reset button state
+                saveBtnText.style.display = 'inline-block';
+                saveLoading.style.display = 'none';
+                saveBtn.disabled = false;
+            });
+        }
+        
+        function loadSummary() {
+            fetch(`${API_URL}?action=getSummary`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update the UI with the summary data
+                    const netBalanceEl = document.querySelector('.net-balance .amount');
+                    const cashInEl = document.querySelector('.cash-in .amount');
+                    const cashOutEl = document.querySelector('.cash-out .amount');
+                    
+                    netBalanceEl.textContent = `₹${data.netBalance.toFixed(2)}`;
+                    cashInEl.textContent = `₹${data.totalIn.toFixed(2)}`;
+                    cashOutEl.textContent = `₹${data.totalOut.toFixed(2)}`;
+                    
+                    // Change color of net balance based on value
+                    if (data.netBalance >= 0) {
+                        netBalanceEl.className = 'amount positive';
+                    } else {
+                        netBalanceEl.className = 'amount negative';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading summary:', error);
+                    showNotification('Error loading summary', 'error');
+                });
+        }
+        
+        function loadEntries(filters = {}) {
+            // Build query string from filters
+            const params = new URLSearchParams();
+            params.append('action', 'getEntries');
+            
+            if (filters.month) params.append('month', filters.month);
+            if (filters.category) params.append('category', filters.category);
+            if (filters.type) params.append('type', filters.type);
+            if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+            if (filters.dateTo) params.append('dateTo', filters.dateTo);
+            
+            fetch(`${API_URL}?${params.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    currentEntries = data.entries || [];
+                    displayEntries(currentEntries);
+                })
+                .catch(error => {
+                    console.error('Error loading entries:', error);
+                    showNotification('Error loading entries', 'error');
+                });
+        }
+        
+        function displayEntries(entries) {
+            const entriesList = document.getElementById('entries-list');
+            
+            if (entries.length === 0) {
+                entriesList.innerHTML = `
+                    <div class="no-entries">
+                        <i class="fas fa-receipt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <p>No entries found. Try changing your filters.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            entriesList.innerHTML = '';
+            
+            entries.forEach(entry => {
+                const entryItem = document.createElement('div');
+                entryItem.className = 'entry-item';
+                
+                const dateObj = new Date(entry.Date);
+                const formattedDate = dateObj.toLocaleDateString('en-IN', { 
+                    day: 'numeric', 
+                    month: 'short', 
+                    year: 'numeric' 
+                });
+                
+                const amountClass = entry.Type === 'IN' ? 'amount-in' : 'amount-out';
+                const amountSymbol = entry.Type === 'IN' ? '+' : '-';
+                
+                entryItem.innerHTML = `
+                    <div class="entry-details">
+                        <div class="entry-date">${formattedDate}</div>
+                        <div class="entry-category">${entry.Category}</div>
+                        <div class="entry-remarks">${entry.Remarks || ''}</div>
+                    </div>
+                    <div class="entry-amount ${amountClass}">${amountSymbol}₹${parseFloat(entry.Amount).toFixed(2)}</div>
+                `;
+                
+                entriesList.appendChild(entryItem);
+            });
+        }
+        
+        function loadCategories() {
+            fetch(`${API_URL}?action=getCategories`)
+                .then(response => response.json())
+                .then(data => {
+                    currentCategories = data.categories || [];
+                    updateCategoryFilters();
+                    updateCategoryDropdown('out'); // Default to expense categories
+                })
+                .catch(error => {
+                    console.error('Error loading categories:', error);
+                    showNotification('Error loading categories', 'error');
+                });
+        }
+        
+        function updateCategoryFilters() {
+            const categoryFilter = document.getElementById('category-filter');
+            categoryFilter.innerHTML = '<option value="">All Categories</option>';
+            
+            currentCategories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.CategoryName;
+                option.textContent = category.CategoryName;
+                categoryFilter.appendChild(option);
+            });
+        }
+        
+        function openCategoriesModal() {
+            displayCategoriesList();
+            categoriesModal.style.display = 'flex';
+        }
+        
+        function displayCategoriesList() {
+            const categoriesList = document.getElementById('categories-list');
+            categoriesList.innerHTML = '';
+            
+            if (currentCategories.length === 0) {
+                categoriesList.innerHTML = '<div class="no-entries">No categories found</div>';
+                return;
+            }
+            
+            currentCategories.forEach(category => {
+                const categoryItem = document.createElement('div');
+                categoryItem.className = 'category-item';
+                
+                let typeBadge = '';
+                switch(category.Type) {
+                    case 'IN': typeBadge = '<span style="color: var(--primary-green);">Income</span>'; break;
+                    case 'OUT': typeBadge = '<span style="color: var(--primary-red);">Expense</span>'; break;
+                    case 'BOTH': typeBadge = '<span style="color: var(--accent-color);">Both</span>'; break;
+                }
+                
+                categoryItem.innerHTML = `
+                    <span>${category.CategoryName} ${typeBadge}</span>
+                    <div class="category-actions">
+                        <button onclick="editCategory('${category.CategoryName}')"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteCategory('${category.CategoryName}')"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+                
+                categoriesList.appendChild(categoryItem);
+            });
+        }
+        
+        function addNewCategory() {
+            const nameInput = document.getElementById('new-category');
+            const typeSelect = document.getElementById('new-category-type');
+            const name = nameInput.value.trim();
+            const type = typeSelect.value;
+            
+            if (!name) {
+                showNotification('Please enter a category name', 'error');
+                return;
+            }
+            
+            // Check if category already exists
+            if (currentCategories.some(cat => cat.CategoryName === name)) {
+                showNotification('Category already exists', 'error');
+                return;
+            }
+            
+            const formData = new URLSearchParams();
+            formData.append('action', 'addCategory');
+            formData.append('name', name);
+            formData.append('type', type);
+            
+            fetch(API_URL, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`Category "${name}" added successfully!`, 'success');
+                    nameInput.value = '';
+                    loadCategories();
+                    displayCategoriesList();
+                } else {
+                    throw new Error(data.error || 'Failed to add category');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error adding category: ' + error.message, 'error');
+            });
+        }
+        
+        function editCategory(categoryName) {
+            const newName = prompt('Enter new name for category:', categoryName);
+            if (newName && newName !== categoryName) {
+                const formData = new URLSearchParams();
+                formData.append('action', 'updateCategory');
+                formData.append('oldName', categoryName);
+                formData.append('newName', newName);
+                
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Category updated successfully!', 'success');
+                        loadCategories();
+                        displayCategoriesList();
+                    } else {
+                        throw new Error(data.error || 'Failed to update category');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error updating category: ' + error.message, 'error');
+                });
+            }
+        }
+        
+        function deleteCategory(categoryName) {
+            if (confirm(`Are you sure you want to delete category "${categoryName}"?`)) {
+                const formData = new URLSearchParams();
+                formData.append('action', 'deleteCategory');
+                formData.append('name', categoryName);
+                
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Category deleted successfully!', 'success');
+                        loadCategories();
+                        displayCategoriesList();
+                    } else {
+                        throw new Error(data.error || 'Failed to delete category');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error deleting category: ' + error.message, 'error');
+                });
+            }
+        }
+        
+        function applyFilters() {
+            const month = document.getElementById('month-filter').value;
+            const category = document.getElementById('category-filter').value;
+            const type = document.getElementById('type-filter').value;
+            const dateFrom = document.getElementById('date-from').value;
+            const dateTo = document.getElementById('date-to').value;
+            
+            const filters = {};
+            if (month) filters.month = month;
+            if (category) filters.category = category;
+            if (type) filters.type = type;
+            if (dateFrom) filters.dateFrom = dateFrom;
+            if (dateTo) filters.dateTo = dateTo;
+            
+            loadEntries(filters);
+        }
+        
+        function clearFilters() {
+            document.getElementById('month-filter').value = '';
+            document.getElementById('category-filter').value = '';
+            document.getElementById('type-filter').value = '';
+            setupFilterDates();
+            loadEntries();
+        }
+        
+        function viewAllEntries() {
+            clearFilters();
+        }
+        
+        function exportData() {
+            // Convert entries to CSV
+            const headers = ['Date', 'Type', 'Amount', 'Category', 'Remarks'];
+            const csvData = [headers];
+            
+            currentEntries.forEach(entry => {
+                csvData.push([
+                    entry.Date,
+                    entry.Type,
+                    entry.Amount,
+                    entry.Category,
+                    entry.Remarks || ''
+                ]);
+            });
+            
+            const csvContent = csvData.map(row => 
+                row.map(field => `"${field}"`).join(',')
+            ).join('\n');
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `expenses-25-26-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Data exported successfully!', 'success');
+        }
+        
+        function processImport() {
+            const fileInput = document.getElementById('import-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showNotification('Please select a file', 'error');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const csvData = e.target.result;
+                    const results = Papa.parse(csvData, {
+                        header: true,
+                        skipEmptyLines: true
+                    });
+                    
+                    if (results.errors.length > 0) {
+                        showNotification('Error parsing file: ' + results.errors[0].message, 'error');
+                        return;
+                    }
+                    
+                    // Process each row
+                    let processed = 0;
+                    let errors = 0;
+                    
+                    results.data.forEach(row => {
+                        if (row.Date && row.Type && row.Amount && row.Category) {
+                            const formData = new URLSearchParams();
+                            formData.append('action', 'addEntry');
+                            formData.append('date', row.Date);
+                            formData.append('type', row.Type.toUpperCase());
+                            formData.append('amount', row.Amount);
+                            formData.append('category', row.Category);
+                            formData.append('remarks', row.Remarks || '');
+                            
+                            fetch(API_URL, {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    processed++;
+                                } else {
+                                    errors++;
+                                }
+                                
+                                // If this is the last request, show summary
+                                if (processed + errors === results.data.length) {
+                                    showNotification(`Import completed: ${processed} entries added, ${errors} errors`, 'success');
+                                    importModal.style.display = 'none';
+                                    fileInput.value = '';
+                                    loadSummary();
+                                    loadEntries();
+                                }
+                            })
+                            .catch(() => {
+                                errors++;
+                                if (processed + errors === results.data.length) {
+                                    showNotification(`Import completed: ${processed} entries added, ${errors} errors`, 'success');
+                                    importModal.style.display = 'none';
+                                    fileInput.value = '';
+                                    loadSummary();
+                                    loadEntries();
+                                }
+                            });
+                        } else {
+                            errors++;
+                        }
+                    });
+                    
+                    if (results.data.length === 0) {
+                        showNotification('No valid data found in file', 'error');
+                    }
+                    
+                } catch (error) {
+                    showNotification('Error processing file: ' + error.message, 'error');
+                }
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        function toggleTheme() {
+            // This is a dark-mode only app, but we can add a toggle for future light mode if needed
+            const icon = themeToggle.querySelector('i');
+            if (icon.classList.contains('fa-moon')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+                showNotification('Light mode coming soon!', 'success');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        }
+        
+        function showNotification(message, type) {
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
