@@ -257,12 +257,30 @@
             border: 1px solid var(--dark-border);
         }
         
-        .entries-section h2 {
-            font-size: 1.2rem;
+        .entries-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
             margin-bottom: 15px;
+            gap: 10px;
+        }
+        
+        .entries-header h2 {
+            font-size: 1.2rem;
             display: flex;
             align-items: center;
             gap: 10px;
+            flex: 1;
+        }
+        
+        .bulk-actions {
+            display: none;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .bulk-actions.show {
+            display: flex;
         }
         
         .entries-list {
@@ -277,6 +295,7 @@
             padding: 16px;
             border-bottom: 1px solid var(--dark-border);
             transition: background-color 0.2s ease;
+            align-items: center;
         }
         
         .entry-item:hover {
@@ -287,9 +306,26 @@
             border-bottom: none;
         }
         
+        .entry-item.selected {
+            background: rgba(99, 102, 241, 0.1);
+            border-left: 3px solid var(--accent-color);
+        }
+        
+        .entry-checkbox {
+            margin-right: 10px;
+        }
+        
+        .entry-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex: 1;
+        }
+        
         .entry-details {
             display: flex;
             flex-direction: column;
+            flex: 1;
         }
         
         .entry-date {
@@ -311,6 +347,7 @@
         .entry-amount {
             font-weight: bold;
             font-size: 1.1rem;
+            margin-right: 15px;
         }
         
         .amount-in {
@@ -319,6 +356,34 @@
         
         .amount-out {
             color: var(--primary-red);
+        }
+        
+        .entry-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .entry-actions button {
+            background: none;
+            border: none;
+            color: var(--muted-text);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+        
+        .entry-actions button:hover {
+            color: var(--light-text);
+            background: var(--dark-border);
+        }
+        
+        .edit-btn:hover {
+            color: var(--primary-green) !important;
+        }
+        
+        .delete-btn:hover {
+            color: var(--primary-red) !important;
         }
         
         .modal {
@@ -690,7 +755,15 @@
         </div>
         
         <div class="entries-section">
-            <h2><i class="fas fa-history"></i> Recent Entries</h2>
+            <div class="entries-header">
+                <h2><i class="fas fa-history"></i> Recent Entries</h2>
+                <div class="bulk-actions" id="bulk-actions">
+                    <span id="selected-count">0 selected</span>
+                    <button class="btn btn-red" id="delete-selected-btn">
+                        <i class="fas fa-trash"></i> Delete Selected
+                    </button>
+                </div>
+            </div>
             <div class="entries-list" id="entries-list">
                 <div class="no-entries">
                     <i class="fas fa-receipt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
@@ -709,6 +782,7 @@
             </div>
             <div class="modal-body">
                 <form id="entry-form">
+                    <input type="hidden" id="entry-id">
                     <div class="form-group">
                         <label for="entry-date">Date *</label>
                         <input type="date" id="entry-date" required>
@@ -803,7 +877,7 @@
 
     <script>
         // Configuration - UPDATE THIS WITH YOUR GOOGLE APPS SCRIPT URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwF6cMMo3A1VCOWVhuCNXQa2k-e6qBeifDz2A1sX7mAbaIfiz5of5Hth4Bv-xxd3cNj/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbw99N2m1UprgbBbbdPJgQNJRDKCbJaJBjn7wo3_DyM_2Ebwcn6CZ8XS8Kp7tFwD-l2D/exec';
         
         // DOM Elements
         const cashInBtn = document.getElementById('cash-in-btn');
@@ -830,11 +904,17 @@
         const addCategoryBtn = document.getElementById('add-category-btn');
         const notification = document.getElementById('notification');
         const themeToggle = document.getElementById('theme-toggle');
+        const bulkActions = document.getElementById('bulk-actions');
+        const selectedCount = document.getElementById('selected-count');
+        const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+        const entryIdField = document.getElementById('entry-id');
         
         // Global state
         let currentEntries = [];
         let currentCategories = [];
         let currentEntryType = 'in';
+        let selectedEntries = new Set();
+        let isEditing = false;
         
         // Set today's date as default in the form
         document.getElementById('entry-date').valueAsDate = new Date();
@@ -858,6 +938,7 @@
             exportBtn.addEventListener('click', exportData);
             viewAllBtn.addEventListener('click', viewAllEntries);
             themeToggle.addEventListener('click', toggleTheme);
+            deleteSelectedBtn.addEventListener('click', deleteSelectedEntries);
             
             closeBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -867,21 +948,31 @@
                 });
             });
             
-            cancelBtn.addEventListener('click', () => entryModal.style.display = 'none');
+            cancelBtn.addEventListener('click', () => {
+                entryModal.style.display = 'none';
+                resetForm();
+            });
             closeCategoriesBtn.addEventListener('click', () => categoriesModal.style.display = 'none');
             cancelImportBtn.addEventListener('click', () => importModal.style.display = 'none');
             processImportBtn.addEventListener('click', processImport);
             
             // Close modals when clicking outside
             window.addEventListener('click', (e) => {
-                if (e.target === entryModal) entryModal.style.display = 'none';
+                if (e.target === entryModal) {
+                    entryModal.style.display = 'none';
+                    resetForm();
+                }
                 if (e.target === categoriesModal) categoriesModal.style.display = 'none';
                 if (e.target === importModal) importModal.style.display = 'none';
             });
             
             entryForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                saveEntry();
+                if (isEditing) {
+                    updateEntry();
+                } else {
+                    saveEntry();
+                }
             });
             
             addCategoryBtn.addEventListener('click', addNewCategory);
@@ -896,31 +987,54 @@
             document.getElementById('date-to').valueAsDate = lastDay;
         }
         
-        function openEntryModal(type) {
+        function openEntryModal(type, entry = null) {
             currentEntryType = type;
+            isEditing = entry !== null;
             
-            if (type === 'in') {
-                modalTitle.textContent = 'Cash In';
+            if (isEditing) {
+                modalTitle.textContent = 'Edit Entry';
                 saveBtn.className = 'btn btn-green';
-                saveBtnText.textContent = 'Add Income';
+                saveBtnText.textContent = 'Update Entry';
+                
+                // Fill form with existing data
+                entryIdField.value = entry.EntryID;
+                document.getElementById('entry-date').value = entry.Date;
+                document.getElementById('entry-amount').value = entry.Amount;
+                document.getElementById('entry-remarks').value = entry.Remarks || '';
+                
+                // Set type based on entry data
+                currentEntryType = entry.Type.toLowerCase();
             } else {
-                modalTitle.textContent = 'Cash Out';
-                saveBtn.className = 'btn btn-red';
-                saveBtnText.textContent = 'Add Expense';
+                modalTitle.textContent = type === 'in' ? 'Cash In' : 'Cash Out';
+                saveBtn.className = type === 'in' ? 'btn btn-green' : 'btn btn-red';
+                saveBtnText.textContent = type === 'in' ? 'Add Income' : 'Add Expense';
+                
+                // Clear the form
+                resetForm();
             }
             
-            // Set the current date as default
-            document.getElementById('entry-date').valueAsDate = new Date();
+            // Update category dropdown based on type
+            updateCategoryDropdown(currentEntryType);
             
-            // Clear the form
+            // If editing, preselect the category
+            if (isEditing) {
+                setTimeout(() => {
+                    document.getElementById('entry-category').value = entry.Category;
+                }, 100);
+            }
+            
+            entryModal.style.display = 'flex';
+        }
+        
+        function resetForm() {
+            entryIdField.value = '';
+            document.getElementById('entry-date').valueAsDate = new Date();
             document.getElementById('entry-amount').value = '';
             document.getElementById('entry-category').selectedIndex = 0;
             document.getElementById('entry-remarks').value = '';
-            
-            // Update category dropdown based on type
-            updateCategoryDropdown(type);
-            
-            entryModal.style.display = 'flex';
+            isEditing = false;
+            modalTitle.textContent = 'Add Entry';
+            saveBtnText.textContent = 'Save Entry';
         }
         
         function updateCategoryDropdown(type) {
@@ -980,6 +1094,7 @@
                     // Reload data
                     loadSummary();
                     loadEntries();
+                    resetForm();
                 } else {
                     throw new Error(data.error || 'Failed to add entry');
                 }
@@ -994,6 +1109,147 @@
                 saveLoading.style.display = 'none';
                 saveBtn.disabled = false;
             });
+        }
+        
+        function updateEntry() {
+            const date = document.getElementById('entry-date').value;
+            const amount = document.getElementById('entry-amount').value;
+            const category = document.getElementById('entry-category').value;
+            const remarks = document.getElementById('entry-remarks').value;
+            const type = currentEntryType.toUpperCase();
+            const entryId = entryIdField.value;
+            
+            // Validate form
+            if (!date || !amount || !category) {
+                showNotification('Please fill all required fields', 'error');
+                return;
+            }
+            
+            // Show loading state
+            saveBtnText.style.display = 'none';
+            saveLoading.style.display = 'inline-block';
+            saveBtn.disabled = true;
+            
+            // Prepare data for API
+            const formData = new URLSearchParams();
+            formData.append('action', 'updateEntry');
+            formData.append('entryId', entryId);
+            formData.append('date', date);
+            formData.append('type', type);
+            formData.append('amount', amount);
+            formData.append('category', category);
+            formData.append('remarks', remarks);
+            
+            // Send to Google Apps Script
+            fetch(API_URL, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`Entry updated successfully!`, 'success');
+                    entryModal.style.display = 'none';
+                    
+                    // Reload data
+                    loadSummary();
+                    loadEntries();
+                    resetForm();
+                } else {
+                    throw new Error(data.error || 'Failed to update entry');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error updating entry: ' + error.message, 'error');
+            })
+            .finally(() => {
+                // Reset button state
+                saveBtnText.style.display = 'inline-block';
+                saveLoading.style.display = 'none';
+                saveBtn.disabled = false;
+            });
+        }
+        
+        function deleteEntry(entryId) {
+            if (confirm('Are you sure you want to delete this entry?')) {
+                const formData = new URLSearchParams();
+                formData.append('action', 'deleteEntry');
+                formData.append('entryId', entryId);
+                
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('Entry deleted successfully!', 'success');
+                        loadSummary();
+                        loadEntries();
+                    } else {
+                        throw new Error(data.error || 'Failed to delete entry');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error deleting entry: ' + error.message, 'error');
+                });
+            }
+        }
+        
+        function deleteSelectedEntries() {
+            if (selectedEntries.size === 0) {
+                showNotification('No entries selected', 'error');
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to delete ${selectedEntries.size} selected entries?`)) {
+                const formData = new URLSearchParams();
+                formData.append('action', 'deleteMultipleEntries');
+                formData.append('entryIds', JSON.stringify(Array.from(selectedEntries)));
+                
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        selectedEntries.clear();
+                        updateBulkActions();
+                        loadSummary();
+                        loadEntries();
+                    } else {
+                        throw new Error(data.error || 'Failed to delete entries');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error deleting entries: ' + error.message, 'error');
+                });
+            }
+        }
+        
+        function toggleEntrySelection(entryId, checkbox) {
+            if (checkbox.checked) {
+                selectedEntries.add(entryId);
+            } else {
+                selectedEntries.delete(entryId);
+            }
+            updateBulkActions();
+        }
+        
+        function updateBulkActions() {
+            const count = selectedEntries.size;
+            selectedCount.textContent = `${count} selected`;
+            
+            if (count > 0) {
+                bulkActions.classList.add('show');
+            } else {
+                bulkActions.classList.remove('show');
+            }
         }
         
         function loadSummary() {
@@ -1062,7 +1318,7 @@
             
             entries.forEach(entry => {
                 const entryItem = document.createElement('div');
-                entryItem.className = 'entry-item';
+                entryItem.className = `entry-item ${selectedEntries.has(entry.EntryID) ? 'selected' : ''}`;
                 
                 const dateObj = new Date(entry.Date);
                 const formattedDate = dateObj.toLocaleDateString('en-IN', { 
@@ -1075,12 +1331,24 @@
                 const amountSymbol = entry.Type === 'IN' ? '+' : '-';
                 
                 entryItem.innerHTML = `
-                    <div class="entry-details">
-                        <div class="entry-date">${formattedDate}</div>
-                        <div class="entry-category">${entry.Category}</div>
-                        <div class="entry-remarks">${entry.Remarks || ''}</div>
+                    <input type="checkbox" class="entry-checkbox" ${selectedEntries.has(entry.EntryID) ? 'checked' : ''} 
+                           onchange="toggleEntrySelection('${entry.EntryID}', this)">
+                    <div class="entry-content">
+                        <div class="entry-details">
+                            <div class="entry-date">${formattedDate}</div>
+                            <div class="entry-category">${entry.Category}</div>
+                            <div class="entry-remarks">${entry.Remarks || ''}</div>
+                        </div>
+                        <div class="entry-amount ${amountClass}">${amountSymbol}₹${parseFloat(entry.Amount).toFixed(2)}</div>
+                        <div class="entry-actions">
+                            <button class="edit-btn" onclick="openEntryModal('${entry.Type.toLowerCase()}', ${JSON.stringify(entry).replace(/"/g, '&quot;')})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn" onclick="deleteEntry('${entry.EntryID}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="entry-amount ${amountClass}">${amountSymbol}₹${parseFloat(entry.Amount).toFixed(2)}</div>
                 `;
                 
                 entriesList.appendChild(entryItem);
