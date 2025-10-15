@@ -872,7 +872,7 @@
 
     <script>
         // Configuration - UPDATE THIS WITH YOUR GOOGLE APPS SCRIPT URL
-        const API_URL = 'https://script.google.com/macros/s/AKfycbxWqJw0ZoSMw8skfxx6dgJLTKYYrt2oltIam9KXcMkmwC7xUQ0GC1trJxcmqqMKgn0R/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxF8fnLkNM7694m8oTSLhL3ipK89D-Qf2q7UTOhOuVyYsJPzXcLDUjaJAqWYnbTBK7_/exec';
         
         // DOM Elements
         const cashInBtn = document.getElementById('cash-in-btn');
@@ -1315,6 +1315,8 @@
                 }
             });
             
+            console.log('Loading summary with filters:', Object.keys(currentFilters));
+            
             fetch(`${API_URL}?${params.toString()}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1366,6 +1368,8 @@
                     params.append(key, currentFilters[key]);
                 }
             });
+            
+            console.log('Loading entries with filters:', Object.keys(currentFilters));
             
             fetch(`${API_URL}?${params.toString()}`)
                 .then(response => response.json())
@@ -1474,6 +1478,8 @@
             if (dateFrom) currentFilters.dateFrom = dateFrom;
             if (dateTo) currentFilters.dateTo = dateTo;
             
+            console.log('Applying filters:', currentFilters);
+            
             // Load data with filters
             loadSummaryWithFilters();
             loadEntriesWithFilters();
@@ -1501,8 +1507,38 @@
             clearFilters();
         }
         
-        // ... (rest of the functions remain the same as previous version)
-        // [The remaining functions like openCategoriesModal, addNewCategory, exportData, etc. remain unchanged from the previous version]
+        function exportData() {
+            // Convert entries to CSV
+            const headers = ['Date', 'Type', 'Amount', 'Category', 'Remarks'];
+            const csvData = [headers];
+            
+            currentEntries.forEach(entry => {
+                csvData.push([
+                    entry.Date,
+                    entry.Type,
+                    entry.Amount,
+                    entry.Category,
+                    entry.Remarks || ''
+                ]);
+            });
+            
+            const csvContent = csvData.map(row => 
+                row.map(field => `"${field}"`).join(',')
+            ).join('\n');
+            
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `expenses-25-26-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Data exported successfully!', 'success');
+        }
         
         function openCategoriesModal() {
             displayCategoriesList();
@@ -1638,39 +1674,6 @@
                     showNotification('Error deleting category: ' + error.message, 'error');
                 });
             }
-        }
-        
-        function exportData() {
-            // Convert entries to CSV
-            const headers = ['Date', 'Type', 'Amount', 'Category', 'Remarks'];
-            const csvData = [headers];
-            
-            currentEntries.forEach(entry => {
-                csvData.push([
-                    entry.Date,
-                    entry.Type,
-                    entry.Amount,
-                    entry.Category,
-                    entry.Remarks || ''
-                ]);
-            });
-            
-            const csvContent = csvData.map(row => 
-                row.map(field => `"${field}"`).join(',')
-            ).join('\n');
-            
-            // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `expenses-25-26-${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showNotification('Data exported successfully!', 'success');
         }
         
         function processImport() {
